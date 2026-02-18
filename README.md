@@ -9,7 +9,7 @@
         '         `-'        
 ```
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: MIT]([https://img.shields.io/badge/License-GPLv2-blue.svg])(LICENSE)
 [![C](https://img.shields.io/badge/language-C-blue.svg)](https://en.wikipedia.org/wiki/C_(programming_language))
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20BSD-lightgrey.svg)](https://github.com/D1A881/ospwgen)
 
