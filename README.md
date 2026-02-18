@@ -422,7 +422,7 @@ Contributions welcome! Please:
 
 ### Code Style
 
-- Follow existing formatting (K&R style)
+- Follow existing formatting (K&R with // comments)
 - Comment non-obvious logic
 - Keep functions focused and < 50 lines
 - Test on Linux and macOS
@@ -431,7 +431,7 @@ Contributions welcome! Please:
 
 Copyright ©2022-2026 billy@slack.net
 
-Released under the MIT License. See [LICENSE](LICENSE) file for details.
+Released under the GNU GPLv2 License. See [LICENSE](LICENSE) file for details.
 
 ## Author
 
