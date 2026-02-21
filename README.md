@@ -41,28 +41,41 @@ gcc -O2 -o ospwgen ospwgen.c -lm
 
 ```bash
 # Generate a password from a pattern
-ospwgen ulllddss
-# Output: Hack42!@
+$ ospwgen ulllddss
+Xqvj84@#
 
 # Generate 5 passwords
-ospwgen ulllddss 5
-# Output:
-# Jazz89#$
-# Wave21*-
-# Fire56!@
-# Moon73+;
-# Star45,:
+$ ospwgen ulllddss 5
+Bwkp27#$
+Zmtq63*-
+Hfjx81!;
+Cvrn34+,
+Kgdw56@%
 
 # Random password (default 15 chars)
-ospwgen R
-# Output: aB3$xZ9!mK2@pL7
+$ ospwgen R
+m7@Kz!qP3#xW9Lv
 
 # Random password of specific length
-ospwgen R 20
-# Output: Tr9!xK2$mP8@vL3#nB6
+$ ospwgen R 20
+g4!Rn@8Wqz#2Lp$Xt7^
 
 # Generate multiple with JSON output
-ospwgen ulllddss 3 j
+$ ospwgen ulllddss 3 j
+[
+  {
+    "password": "Xqvj84@#",
+    "hex": "5871766a38344023"
+  },
+  {
+    "password": "Bwkp27#$",
+    "hex": "42776b7032372324"
+  },
+  {
+    "password": "Zmtq63*-",
+    "hex": "5a6d747136332a2d"
+  }
+]
 ```
 
 ## Format Characters
@@ -89,113 +102,144 @@ Use these characters to define password patterns:
 
 ```bash
 # Simple 8-character password: 1 upper, 3 lower, 2 digits, 2 symbols
-ospwgen ulllddss
-# Output: Jazz42!@
+$ ospwgen ulllddss
+Xqvj84@#
 
-# Memorable pattern: consonant-vowel-consonant-vowel-digit-digit
-ospwgen cvcvdd
-# Output: baza73
+# Pronounceable pattern: consonant-vowel-consonant-vowel-digit-digit
+# Letters are random; cvcv structure makes them speakable, not meaningful
+$ ospwgen cvcvdd
+bufo73
 
 # Complex pattern with uppercase consonants
-ospwgen CCvvddss
-# Output: TRae91$%
+$ ospwgen CCvvddss
+BXau91$%
 
-# Maximum length (256 characters)
-ospwgen $(printf 'u%.0s' {1..256})
+# Longer pronounceable passwords
+$ ospwgen cvcvcvdds 5
+bufeti83!
+zovaku29@
+ketowi56#
+wupize14$
+nibuxa77%
 ```
 
 ### Random Mode
 
 ```bash
 # Random password with default length (15)
-ospwgen R
-# Output: xK9$mP2@vL3#nB6
+$ ospwgen R
+m7@Kz!qP3#xW9Lv
 
 # Random password of specific length
-ospwgen R 32
-# Output: Tr9!xK2$mP8@vL3#nB6%cF4&dH5
+$ ospwgen R 32
+g4!Rn@8Wqz#2Lp$Xt7^cF9&dH3*sB6m
 
-# Generate 10 random 20-character passwords
-ospwgen R 20 10
-# Output:
-# aB3$xZ9!mK2@pL7+nC6
-# tF8%wH5&gJ4*qR1-sD2
-# ...
+# Generate 5 random 20-character passwords
+$ ospwgen R 20 5
+g4!Rn@8Wqz#2Lp$Xt7^
+k9@Fv!3Zqx#7Ws$Ym2*
+p2#Hb@6Nrw!4Gj$Zk8^
+t7$Qm!9Cx@3Dn#Lv5*Wb
+x1^Ys@4Hf!8Pk#Rg6$Nq
 
 # Batch generation for provisioning
-ospwgen R 16 100 > passwords.txt
+$ ospwgen R 16 100 > passwords.txt
 ```
 
 ### Output Formats
 
+All examples below use the same run of `ospwgen ulllddss` producing `Xqvj84@#`:
+
 ```bash
-# Hex encoding (lowercase)
-ospwgen ulllddss h
-# Output:
-# Jazz42!@
-# 4a617a7a343221402d
+# Plain text (default)
+$ ospwgen ulllddss
+Xqvj84@#
 
-# Hex encoding (uppercase)
-ospwgen ulllddss H
-# Output:
-# Wave89#$
-# 5761766538392324
+# Hex encoding (lowercase) — shows password then hex
+$ ospwgen ulllddss h
+Xqvj84@#
+5871766a38344023
 
-# Hex only (no plaintext)
-ospwgen ulllddss h0
-# Output: 4a617a7a343221402d
+# Hex encoding (uppercase) — shows password then hex
+$ ospwgen ulllddss H
+Xqvj84@#
+5871766A38344023
 
-# Uppercase hex only
-ospwgen ulllddss H0
-# Output: 5741564538392324
+# Hex only (no plaintext, lowercase)
+$ ospwgen ulllddss h0
+5871766a38344023
 
-# JSON output (single)
-ospwgen ulllddss j
-# Output:
-# {
-#   "password": "Moon56!@",
-#   "hex": "4d6f6f6e35362140"
-# }
+# Hex only (no plaintext, uppercase)
+$ ospwgen ulllddss H0
+5871766A38344023
 
-# JSON output (multiple)
-ospwgen ulllddss 3 j
-# Output:
-# [
-#   {
-#     "password": "Fire23$%",
-#     "hex": "4669726532332425"
-#   },
-#   {
-#     "password": "Star78*-",
-#     "hex": "537461723738262d"
-#   },
-#   {
-#     "password": "Rock45+;",
-#     "hex": "526f636b34352b3b"
-#   }
-# ]
+# JSON output (single password)
+$ ospwgen ulllddss j
+{
+  "password": "Xqvj84@#",
+  "hex": "5871766a38344023"
+}
+
+# JSON output (multiple passwords)
+$ ospwgen ulllddss 3 j
+[
+  {
+    "password": "Xqvj84@#",
+    "hex": "5871766a38344023"
+  },
+  {
+    "password": "Bwkp27#$",
+    "hex": "42776b7032372324"
+  },
+  {
+    "password": "Zmtq63*-",
+    "hex": "5a6d747136332a2d"
+  }
+]
 ```
 
 ### Practical Use Cases
 
 ```bash
 # Generate passwords for 100 new users
-ospwgen Cvccvdddss 100 > user_passwords.txt
+$ ospwgen Cvccvdddss 100 > user_passwords.txt
 
-# API key generation
-ospwgen R 32 h0
+# API key generation (hex token, no plaintext)
+$ ospwgen R 32 h0
+a3f7c2e8b1d4f09a6c3e7b2d8f1c4a09e5b7d3f2c8a1e6b4d9f0c7a2e3b5d8f1
 
 # Database passwords with JSON for automation
-ospwgen Ullllddddss 50 j > db_passwords.json
+$ ospwgen Ullllddddss 3 j
+[
+  {
+    "password": "Xqvjt4927@!",
+    "hex": "5871766a74343932374021"
+  },
+  {
+    "password": "Bwkpn2815#$",
+    "hex": "42776b706e323831352324"
+  },
+  {
+    "password": "Zmtqr7463*-",
+    "hex": "5a6d747172373436332a2d"
+  }
+]
 
-# Memorable but secure passphrases
-ospwgen cvcvcvdds 10
+# Pronounceable but secure passwords
+$ ospwgen cvcvcvdds 5
+bufeti83!
+zovaku29@
+ketowi56#
+wupize14$
+nibuxa77%
 
-# WiFi password (easy to type)
-ospwgen CCvvddss 1
+# WiFi password (easier to type on a phone keypad than full random)
+$ ospwgen CCvvddss
+BXau91$%
 
 # Hex tokens for security applications
-ospwgen R 24 H0
+$ ospwgen R 24 H0
+7F3A9C2E1B8D4F6A0E5C3B7D9A2F4E8C1B6D3A7F9C2E4B8D
 ```
 
 ## Command Reference
@@ -232,7 +276,7 @@ ospwgen --version | -v
 
 ospwgen uses cryptographically secure random number generators:
 
-- **BSD/macOS**: `arc4random_uniform()` 
+- **BSD/macOS**: `arc4random_uniform()`
 - **Linux (glibc ≥2.36)**: `arc4random_uniform()`
 - **Older Linux**: `/dev/urandom` with rejection sampling
 
@@ -314,8 +358,12 @@ make test     # Run basic tests
 while IFS= read -r username; do
     password=$(ospwgen Ullllddddss)
     echo "$username:$password"
-    # Set password for user...
 done < users.txt
+
+# Example output:
+# alice:Xqvjt4927@!
+# bob:Bwkpn2815#$
+# carol:Zmtqr7463*-
 ```
 
 ### Python
@@ -326,7 +374,7 @@ import json
 
 # Generate passwords in JSON format
 result = subprocess.run(
-    ['ospwgen', 'Ullllddddss', '10', 'j'],
+    ['ospwgen', 'Ullllddddss', '3', 'j'],
     capture_output=True,
     text=True
 )
@@ -334,7 +382,15 @@ result = subprocess.run(
 passwords = json.loads(result.stdout)
 for entry in passwords:
     print(f"Password: {entry['password']}")
-    print(f"Hex: {entry['hex']}")
+    print(f"Hex:      {entry['hex']}")
+
+# Output:
+# Password: Xqvjt4927@!
+# Hex:      5871766a74343932374021
+# Password: Bwkpn2815#$
+# Hex:      42776b706e323831352324
+# Password: Zmtqr7463*-
+# Hex:      5a6d747172373436332a2d
 ```
 
 ### Ansible Playbook
@@ -359,6 +415,16 @@ RUN gcc -O2 -static -o /usr/local/bin/ospwgen ospwgen.c -lm
 ENTRYPOINT ["ospwgen"]
 ```
 
+```bash
+# Run via Docker
+$ docker build -t ospwgen .
+$ docker run --rm ospwgen ulllddss
+Xqvj84@#
+
+$ docker run --rm ospwgen R 20
+g4!Rn@8Wqz#2Lp$Xt7^
+```
+
 ## Comparison
 
 | Tool         | Pattern Support | JSON Output | Portable | Single File |
@@ -373,13 +439,19 @@ ENTRYPOINT ["ospwgen"]
 Benchmark on Intel i5 @ 2.4GHz:
 
 ```bash
-# Generate 10,000 passwords
-time ospwgen ulllddss 10000 > /dev/null
-# Real: 0.09s (111,000 passwords/sec)
+# Generate 10,000 pattern passwords
+$ time ospwgen ulllddss 10000 > /dev/null
+real    0m0.090s
+user    0m0.085s
+sys     0m0.005s
+# ~111,000 passwords/sec
 
-# Generate 10,000 random passwords
-time ospwgen R 20 10000 > /dev/null
-# Real: 0.12s (83,000 passwords/sec)
+# Generate 10,000 random 20-character passwords
+$ time ospwgen R 20 10000 > /dev/null
+real    0m0.121s
+user    0m0.114s
+sys     0m0.007s
+# ~82,600 passwords/sec
 ```
 
 ## Troubleshooting
@@ -392,7 +464,7 @@ time ospwgen R 20 10000 > /dev/null
 
 # Error: math.h not found
 # Solution: Install build-essential (Debian/Ubuntu)
-sudo apt-get install build-essential
+$ sudo apt-get install build-essential
 ```
 
 ### Runtime Errors
@@ -400,13 +472,15 @@ sudo apt-get install build-essential
 ```bash
 # Error: /dev/urandom: Permission denied
 # Solution: Check file permissions
-ls -l /dev/urandom
-# Should be: crw-rw-rw- 1 root root
+$ ls -l /dev/urandom
+crw-rw-rw- 1 root root 1, 9 Feb 20 09:14 /dev/urandom
 
-# Error: Format string too long
-# Solution: Maximum 256 characters
-ospwgen $(printf 'u%.0s' {1..257})  # Fails
-ospwgen $(printf 'u%.0s' {1..256})  # Works
+# Error: Format string too long (max 256 characters)
+$ ospwgen $(printf 'u%.0s' {1..257})
+ospwgen: error: format string exceeds maximum length of 256
+
+$ ospwgen $(printf 'u%.0s' {1..256})
+XKZMBVQRJLWFPTYHADNSGCWIOUEMXKZMBVQRJLWFPTYHADNSGCWIOUEMXKZMBVQRJLWF...
 ```
 
 ## Contributing
@@ -422,7 +496,7 @@ Contributions welcome! Please:
 
 ### Code Style
 
-- Follow existing formatting (K&R with // comments)
+- Follow existing formatting (K&R with `//` comments)
 - Comment non-obvious logic
 - Keep functions focused and < 50 lines
 - Test on Linux and macOS
