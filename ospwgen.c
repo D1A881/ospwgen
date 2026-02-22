@@ -31,8 +31,8 @@ static uint32_t pw_rand(uint32_t upper_bound) {
 #endif
 }
 
-#define VER 0x0211
-#define REV 2
+#define VER 0x0216
+#define REV 0
 #define MAX_PASSWORD_LENGTH 256
 #define DEFAULT_PASSWORD_LENGTH 15
 
@@ -71,6 +71,8 @@ void version(void) {
 void usage(const char *cmd) {
     printf("Usage: %s <format> [count] [h|H|h0|H0|j]\n", cmd);
     printf("       %s R [length] [count] [h|H|h0|H0|j]\n", cmd);
+    printf("       %s F <password>\n", cmd);
+    printf("       %s FS <password>\n", cmd);
     printf("       %s --help\n", cmd);
     exit(0);
 }
@@ -103,6 +105,13 @@ void help(const char *cmd) {
     printf(" %s R [length] [count] [h|H|h0|H0|j]\n", cmd);
     printf(" %s R <n> = password of <n> length\n", cmd);
     printf(" %s R <n1> <n2> = <n2> passwords of <n1> length\n\n", cmd);
+    printf("Password to format string:\n");
+    printf(" %s F <password>\n", cmd);
+    printf(" Converts each character of <password> to its format specifier.\n");
+    printf(" %s FS <password>\n", cmd);
+    printf(" Like F, but differentiates consonant/vowel within each case:\n");
+    printf("  C = uppercase consonant, V = uppercase vowel\n");
+    printf("  c = lowercase consonant, v = lowercase vowel\n\n");
     printf("Misc options:\n");
     printf(" -h/--help, prints this page\n");
     printf(" -v/--version, prints version information\n");
@@ -186,6 +195,63 @@ void generate_from_format(const char *fmt, char *out) {
         }
     }
     out[len] = '\0';
+}
+
+//Password to format string conversion
+//Maps each character in the password to its format specifier.
+//
+//When specific == 0 (F mode):
+//  uppercase letter        -> 'u'
+//  lowercase letter        -> 'l'
+//  digit                   -> 'd'
+//  symbol (from a_symbl)   -> 's'
+//  any other printable     -> 'r'
+//
+//When specific == 1 (FS mode), letters are further broken down by case and
+//consonant/vowel using the same character sets as the generator:
+//  uppercase consonant     -> 'C'
+//  uppercase vowel         -> 'V'
+//  lowercase consonant     -> 'c'
+//  lowercase vowel         -> 'v'
+//  digit                   -> 'd'
+//  symbol (from a_symbl)   -> 's'
+//  any other printable     -> 'r'
+void password_to_format(const char *password, int specific, const char *cmd) {
+    size_t len = strlen(password);
+
+    if (len == 0) {
+        printf("ERROR: Password must not be empty!\n");
+        usage(cmd);
+    }
+
+    if (len > MAX_PASSWORD_LENGTH) {
+        printf("ERROR: Password must be %d characters or less!\n", MAX_PASSWORD_LENGTH);
+        usage(cmd);
+    }
+
+    for (size_t i = 0; i < len; i++) {
+        char c = password[i];
+        if (c >= '0' && c <= '9') {
+            putchar('d');
+        } else if (strchr(a_symbl, c)) {
+            putchar('s');
+        } else if (c >= 'A' && c <= 'Z') {
+            if (specific) {
+                putchar(strchr(a_upperv, c) ? 'V' : 'C');
+            } else {
+                putchar('u');
+            }
+        } else if (c >= 'a' && c <= 'z') {
+            if (specific) {
+                putchar(strchr(a_lowerv, c) ? 'v' : 'c');
+            } else {
+                putchar('l');
+            }
+        } else {
+            putchar('r');
+        }
+    }
+    putchar('\n');
 }
 
 //JSON helpers
@@ -354,9 +420,21 @@ int main(int argc, char *argv[]) {
         version();
     }
 
-
     if (strcmp(argv[1], "R") == 0) {
         handle_random_mode(argc, argv, out, argv[0]);
+    }
+
+    //FORMAT CONVERSION MODE: F <password>
+    //Converts each character of the given password to its format specifier.
+    //FS mode further differentiates uppercase/lowercase consonants and vowels.
+    if (strcmp(argv[1], "F") == 0 || strcmp(argv[1], "FS") == 0) {
+        int specific = (strcmp(argv[1], "FS") == 0) ? 1 : 0;
+        if (argc < 3) {
+            printf("ERROR: Password required!\n");
+            usage(argv[0]);
+        }
+        password_to_format(argv[2], specific, argv[0]);
+        exit(0);
     }
 
     validate_format(argv[1], argv[0]);
