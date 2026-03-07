@@ -68,7 +68,7 @@ ospwgen F "Tr0ub4dor&3"
 
 # Analyse with full consonant/vowel detail
 ospwgen FS "Tr0ub4dor&3"
-# Output: CcdvcdcvcSd
+# Output: Ccdvcdcvcsd
 
 # Generate multiple with JSON output
 ospwgen ulllddss 3 j
