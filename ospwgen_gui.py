@@ -94,6 +94,19 @@ def password_to_format(password: str, specific: bool) -> str:
     return "".join(out)
 
 
+def unescape_delimiter(raw: str) -> str:
+    """Allow users to type \\n, \\t, \\r literally and have them act as
+    newline/tab/carriage-return, while still permitting any literal text
+    (e.g. a comma, a space, '---') to be used verbatim as a delimiter."""
+    return (
+        raw.replace("\\\\", "\x00")
+        .replace("\\n", "\n")
+        .replace("\\t", "\t")
+        .replace("\\r", "\r")
+        .replace("\x00", "\\")
+    )
+
+
 def to_hex(s: str, upper: bool) -> str:
     h = s.encode("utf-8", errors="replace").hex()
     return h.upper() if upper else h
@@ -179,13 +192,32 @@ class OutputOptions(ttk.LabelFrame):
                 row=i // 2, column=i % 2, sticky="w", padx=4, pady=2
             )
 
+        sep_row = (len(options) + 1) // 2
+        ttk.Separator(self, orient="horizontal").grid(
+            row=sep_row, column=0, columnspan=2, sticky="ew", pady=8
+        )
+        ttk.Label(self, text="Delimiter between passwords:").grid(
+            row=sep_row + 1, column=0, sticky="w", padx=4
+        )
+        self.delim_var = tk.StringVar(value="\\n")
+        ttk.Entry(self, textvariable=self.delim_var, width=14).grid(
+            row=sep_row + 1, column=1, sticky="w", padx=4
+        )
+        ttk.Label(
+            self,
+            text="(used only when generating more than one; \\n, \\t, \\r supported, "
+                 "or use any literal text e.g. ', ' or '---')",
+            foreground="#555", wraplength=380, justify="left",
+        ).grid(row=sep_row + 2, column=0, columnspan=2, sticky="w", padx=4)
+
     def get(self):
         v = self.mode.get()
+        delimiter = unescape_delimiter(self.delim_var.get())
         if v == "json":
-            return None, True
+            return None, True, delimiter
         if v == "none":
-            return None, False
-        return v, False
+            return None, False, delimiter
+        return v, False, delimiter
 
 
 class OutputPanel(ttk.LabelFrame):
@@ -308,10 +340,11 @@ class FormatTab(ttk.Frame):
             count = int(self.count_var.get())
             if count < 1:
                 raise ValueError("Count must be at least 1.")
-            hex_mode, json_mode = self.output_opts.get()
+            hex_mode, json_mode, delimiter = self.output_opts.get()
             passwords = [generate_from_format(fmt) for _ in range(count)]
             lines = format_output(passwords, hex_mode, json_mode)
-            self.output_panel.show(lines)
+            joined = lines[0] if json_mode else delimiter.join(lines)
+            self.output_panel.show([joined])
         except ValueError as e:
             messagebox.showerror("Invalid input", str(e))
 
@@ -361,10 +394,11 @@ class RandomTab(ttk.Frame):
                 raise ValueError(f"Length must be between 1 and {MAX_PASSWORD_LENGTH}.")
             if count < 1:
                 raise ValueError("Count must be at least 1.")
-            hex_mode, json_mode = self.output_opts.get()
+            hex_mode, json_mode, delimiter = self.output_opts.get()
             passwords = [generate_random_password(length) for _ in range(count)]
             lines = format_output(passwords, hex_mode, json_mode)
-            self.output_panel.show(lines)
+            joined = lines[0] if json_mode else delimiter.join(lines)
+            self.output_panel.show([joined])
         except ValueError as e:
             messagebox.showerror("Invalid input", str(e))
 

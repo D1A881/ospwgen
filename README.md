@@ -1,530 +1,212 @@
-# ospwgen
+# ospwgen GUI
 
-**Old School Password Generator** — A fast, portable command-line tool for generating secure passwords using custom patterns or random characters.
+**Old School Password Generator — GUI Edition** — A Tkinter front end for [ospwgen](https://github.com/D1A881/ospwgen), the pattern-based / random password generator. Same generation logic as the original C tool, reimplemented in pure Python and wrapped in a tabbed desktop interface.
 
 ```
 ,-. ,-. ;-. , , , ,-: ,-. ;-.
 | | `-. | | |/|/  | | |-' | |
 `-' `-' |-' ' '   `-| `-' ' '
-        '         `-'        
+        '         `-'
 ```
 
 [![License: GPLv2](https://img.shields.io/badge/License-GPLv2-blue.svg)](LICENSE)
-[![C](https://img.shields.io/badge/language-C-blue.svg)](https://en.wikipedia.org/wiki/C_(programming_language))
-[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20BSD-lightgrey.svg)](https://github.com/D1A881/ospwgen)
+[![Python](https://img.shields.io/badge/language-Python%203-blue.svg)](https://www.python.org/)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)](#requirements)
+[![GUI](https://img.shields.io/badge/interface-Tkinter-orange.svg)](https://docs.python.org/3/library/tkinter.html)
+
+## What this is
+
+`ospwgen_gui.py` is a single-file Tkinter application that gives the [original ospwgen.c](https://github.com/D1A881/ospwgen/blob/main/ospwgen.c) CLI tool a point-and-click interface. It reproduces the same three modes — pattern generation, random generation, and password analysis — and adds a couple of GUI-native conveniences (live results panel, copy/save, an editable delimiter between batch-generated passwords).
+
+It's a derivative front end, not the official project. All credit for the original algorithm and character sets goes to the upstream author; see [License](#license) and [Credits](#credits).
 
 ## Features
 
-- **Pattern-based generation** — Define password structure with format strings
-- **Pure random mode** — Generate fully random passwords of any length
-- **Password analysis** — Convert an existing password to its format string (`F` and `FS` modes)
-- **Multiple output formats** — Plain text, hex, uppercase hex, or JSON
-- **Batch generation** — Create multiple passwords in one command
-- **Cryptographically secure** — Uses `arc4random_uniform()` or `/dev/urandom`
-- **Zero dependencies** — Single C file, compiles everywhere
-- **Fast** — Generate thousands of passwords per second
+- **Pattern-based generation** — Build a format string from `u l c v C V d s r` either by typing or clicking labeled buttons (hover for a tooltip on each)
+- **Pure random mode** — Generate fully random passwords of any length (1–256 characters)
+- **Password analysis** — Convert an existing password into its format string (`F` and `FS` equivalents), with a show/hide toggle on the password field
+- **Multiple output formats** — Plain text, lowercase/uppercase hex (shown alongside or hex-only), or JSON
+- **Batch generation** — Generate up to 1000 passwords per click
+- **Editable delimiter** — Choose how multiple results are separated (newline, tab, comma, `---`, or any literal text) on both the Format and Random tabs
+- **Cryptographically secure** — Uses Python's [`secrets`](https://docs.python.org/3/library/secrets.html) module (CSPRNG), the standard-library equivalent of `arc4random_uniform()` / `/dev/urandom`
+- **Zero external dependencies** — Only the Python standard library (`tkinter`, `secrets`, `json`)
+- **Cross-platform** — Runs anywhere Python 3 + Tk is available: Linux, macOS, Windows
+- **Copy / save / clear** — One-click copy of results to the clipboard, save to a text file, or clear the panel
+
+## Requirements
+
+- Python 3.8 or later
+- Tkinter (bundled with most Python installs; see notes below if it's missing)
+
+```bash
+# Debian/Ubuntu — Tkinter is sometimes a separate package
+sudo apt-get install python3-tk
+
+# Fedora
+sudo dnf install python3-tkinter
+
+# macOS / Windows — Tkinter ships with the official python.org installer
+```
 
 ## Quick Start
 
-### Installation
-
 ```bash
-# Clone and compile
-git clone https://github.com/D1A881/ospwgen.git
-cd ospwgen
-make
-
-# Or compile manually
-gcc -O2 -o ospwgen ospwgen.c -lm
+# Just run it — no install, no pip packages
+python3 ospwgen_gui.py
 ```
 
-### Basic Usage
+The window opens with a tab bar on the left (**Format Generator**, **Random Generator**, **Analyze (F/FS)**, **Help / About**) and a shared **Results** panel on the right.
 
-```bash
-# Generate a password from a pattern
-ospwgen ulllddss
-# Output: Hack42!@
+## Using the GUI
 
-# Generate 5 passwords
-ospwgen ulllddss 5
-# Output:
-# Jazz89#$
-# Wave21*-
-# Fire56!@
-# Moon73+;
-# Star45,:
+### Format Generator tab
 
-# Random password (default 15 chars)
-ospwgen R
-# Output: aB3$xZ9!mK2@pL7
+Equivalent of `ospwgen <format> [count] [output_mode]`.
 
-# Random password of specific length
-ospwgen R 20
-# Output: Tr9!xK2$mP8@vL3#nB6
+1. Type a pattern into the **Pattern** field, or build one by clicking the `u l c v C V d s r` buttons (each shows what it inserts on hover).
+2. Set **Count** to generate more than one password at once.
+3. Pick an **Output format** (see [Output Formats](#output-formats) below).
+4. If generating more than one, set the **Delimiter between passwords**.
+5. Click **Generate** — results appear in the panel on the right.
 
-# Analyse the structure of an existing password
-ospwgen F "Tr0ub4dor&3"
-# Output: uldlldlllsd
-
-# Analyse with full consonant/vowel detail
-ospwgen FS "Tr0ub4dor&3"
-# Output: Ccdvcdcvcsd
-
-# Generate multiple with JSON output
-ospwgen ulllddss 3 j
-```
-
-## Format Characters
-
-Use these characters to define password patterns:
-
-| Character | Description                  | Example Output |
-|-----------|------------------------------|----------------|
-| `u`       | Uppercase letter             | `A`, `Z`, `M`  |
-| `l`       | Lowercase letter             | `a`, `z`, `m`  |
-| `c`       | Lowercase consonant          | `b`, `t`, `w`  |
-| `v`       | Lowercase vowel              | `a`, `e`, `o`  |
-| `C`       | Uppercase consonant          | `B`, `T`, `W`  |
-| `V`       | Uppercase vowel              | `A`, `E`, `O`  |
-| `d`       | Digit (0-9)                  | `0`, `5`, `9`  |
-| `s`       | Symbol                       | `!`, `@`, `+`  |
-| `r`       | Random printable character   | Any of above   |
+| Character | Description | Example Output |
+|-----------|---------------------------|----------------|
+| `u`       | Uppercase letter          | `A`, `Z`, `M`  |
+| `l`       | Lowercase letter          | `a`, `z`, `m`  |
+| `c`       | Lowercase consonant       | `b`, `t`, `w`  |
+| `v`       | Lowercase vowel           | `a`, `e`, `o`  |
+| `C`       | Uppercase consonant       | `B`, `T`, `W`  |
+| `V`       | Uppercase vowel           | `A`, `E`, `O`  |
+| `d`       | Digit (0–9)               | `0`, `5`, `9`  |
+| `s`       | Symbol                    | `!`, `@`, `+`  |
+| `r`       | Random printable character| any of the above |
 
 **Symbol set:** `!@#$%^&*()-+;:,.`
 
-## Usage Examples
+### Random Generator tab
 
-### Pattern-Based Passwords
+Equivalent of `ospwgen R [length] [count] [output_mode]`.
 
-```bash
-# Simple 8-character password: 1 upper, 3 lower, 2 digits, 2 symbols
-ospwgen ulllddss
-# Output: Jazz42!@
+1. Set **Length** (1–256) and **Count**.
+2. Pick an **Output format**.
+3. Set the **Delimiter between passwords** if generating more than one.
+4. Click **Generate**.
 
-# Memorable pattern: consonant-vowel-consonant-vowel-digit-digit
-ospwgen cvcvdd
-# Output: baza73
+Characters are drawn uniformly from the full set: `A-Z a-z 0-9 !@#$%^&*()-+;:,.`
 
-# Complex pattern with uppercase consonants
-ospwgen CCvvddss
-# Output: TRae91$%
+### Analyze (F/FS) tab
 
-# Maximum length (256 characters)
-ospwgen $(printf 'u%.0s' {1..256})
-```
+Equivalent of `ospwgen F <password>` / `ospwgen FS <password>`.
 
-### Random Mode
+1. Type (or paste) a password into the **Password** field. Check **Show** to reveal it, since it's masked by default.
+2. Check **FS mode** to distinguish consonant/vowel within each case (`C`/`V`/`c`/`v`); leave unchecked for the broad classification (`u`/`l`).
+3. Click **Analyze** — the panel shows the password's length and its format string.
 
-```bash
-# Random password with default length (15)
-ospwgen R
-# Output: xK9$mP2@vL3#nB6
-
-# Random password of specific length
-ospwgen R 32
-# Output: Tr9!xK2$mP8@vL3#nB6%cF4&dH5
-
-# Generate 10 random 20-character passwords
-ospwgen R 20 10
-# Output:
-# aB3$xZ9!mK2@pL7+nC6
-# tF8%wH5&gJ4*qR1-sD2
-# ...
-
-# Batch generation for provisioning
-ospwgen R 16 100 > passwords.txt
-```
-
-### Password Analysis Mode
-
-The `F` and `FS` modes work in reverse — they take an existing password and output the format string that describes its structure. This is useful for understanding a password's composition, replicating a password policy, or generating new passwords that follow the same pattern.
-
-```bash
-# F mode: broad classification (u=uppercase, l=lowercase, d=digit, s=symbol, r=other)
-ospwgen F "Tr0ub4dor&3"
-# Output: uldlldlllsd
-
-# FS mode: specific classification — further distinguishes consonant/vowel within each case
-# (C=uppercase consonant, V=uppercase vowel, c=lowercase consonant, v=lowercase vowel)
-ospwgen FS "Tr0ub4dor&3"
-# Output: CcdvcdcvcSd
-
-# The resulting format string can be fed straight back into ospwgen
-ospwgen $(ospwgen F "Tr0ub4dor&3")
-# Generates a new password with the same broad structure
-
-ospwgen $(ospwgen FS "Tr0ub4dor&3")
-# Generates a new password matching the exact consonant/vowel pattern
-```
-
-**Character mapping for `F` mode:**
+**Broad (`F`) mapping:**
 
 | Input character | Format output |
-|-----------------|:-------------:|
-| `A–Z`           | `u`           |
-| `a–z`           | `l`           |
-| `0–9`           | `d`           |
+|---|:---:|
+| `A–Z` | `u` |
+| `a–z` | `l` |
+| `0–9` | `d` |
 | Symbol (`!@#$%^&*()-+;:,.`) | `s` |
-| Any other printable | `r`      |
+| Any other printable | `r` |
 
-**Character mapping for `FS` mode:**
+**Specific (`FS`) mapping:**
 
 | Input character | Format output |
-|-----------------|:-------------:|
-| Uppercase consonant (`B`, `C`, `D` …) | `C` |
-| Uppercase vowel (`A`, `E`, `I`, `O`, `U`) | `V` |
-| Lowercase consonant (`b`, `c`, `d` …) | `c` |
-| Lowercase vowel (`a`, `e`, `i`, `o`, `u`) | `v` |
-| `0–9`           | `d`           |
-| Symbol (`!@#$%^&*()-+;:,.`) | `s` |
-| Any other printable | `r`      |
+|---|:---:|
+| Uppercase consonant | `C` |
+| Uppercase vowel (`A E I O U`) | `V` |
+| Lowercase consonant | `c` |
+| Lowercase vowel (`a e i o u`) | `v` |
+| `0–9` | `d` |
+| Symbol | `s` |
+| Any other printable | `r` |
 
-### Output Formats
+The resulting format string can be fed straight back into the **Format Generator** tab to produce new passwords with the same structure.
 
-```bash
-# Hex encoding (lowercase)
-ospwgen ulllddss h
-# Output:
-# Jazz42!@
-# 4a617a7a343221402d
+### Help / About tab
 
-# Hex encoding (uppercase)
-ospwgen ulllddss H
-# Output:
-# Wave89#$
-# 5761766538392324
+Reproduces the original CLI's ASCII banner and a quick reference of format characters and output options — useful if you forget a character without leaving the app.
 
-# Hex only (no plaintext)
-ospwgen ulllddss h0
-# Output: 4a617a7a343221402d
+## Output Formats
 
-# Uppercase hex only
-ospwgen ulllddss H0
-# Output: 5741564538392324
+Available as radio buttons on the Format and Random tabs:
 
-# JSON output (single)
-ospwgen ulllddss j
-# Output:
-# {
-#   "password": "Moon56!@",
-#   "hex": "4d6f6f6e35362140"
-# }
+| Option | Equivalent CLI flag | Behavior |
+|---|---|---|
+| Plain text | *(none)* | Password only |
+| Plain + lowercase hex (h) | `h` | Password, then its lowercase hex encoding |
+| Plain + UPPERCASE hex (H) | `H` | Password, then its uppercase hex encoding |
+| Hex only, lowercase (h0) | `h0` | Lowercase hex only |
+| Hex only, UPPERCASE (H0) | `H0` | Uppercase hex only |
+| JSON (j) | `j` | `{"password": "...", "hex": "..."}`, or a JSON array if count > 1 |
 
-# JSON output (multiple)
-ospwgen ulllddss 3 j
-# Output:
-# [
-#   {
-#     "password": "Fire23$%",
-#     "hex": "4669726532332425"
-#   },
-#   {
-#     "password": "Star78*-",
-#     "hex": "537461723738262d"
-#   },
-#   {
-#     "password": "Rock45+;",
-#     "hex": "526f636b34352b3b"
-#   }
-# ]
-```
+### Delimiter between passwords
 
-### Practical Use Cases
+New in the GUI: when generating more than one password (and not using JSON), you choose how results are joined:
 
-```bash
-# Generate passwords for 100 new users
-ospwgen Cvccvdddss 100 > user_passwords.txt
+- `\n` (default) — one per line
+- `\t` — tab-separated
+- `\r` — carriage return
+- any literal text — e.g. `, ` or `---` or a custom separator
 
-# API key generation
-ospwgen R 32 h0
-
-# Database passwords with JSON for automation
-ospwgen Ullllddddss 50 j > db_passwords.json
-
-# Memorable but secure passphrases
-ospwgen cvcvcvdds 10
-
-# WiFi password (easy to type)
-ospwgen CCvvddss 1
-
-# Hex tokens for security applications
-ospwgen R 24 H0
-
-# Audit a password's structure, then generate 10 like it
-ospwgen $(ospwgen FS "MyP@ss99") 10
-```
-
-## Command Reference
-
-### Syntax
-
-```
-ospwgen <format> [count] [output_mode]
-ospwgen R [length] [count] [output_mode]
-ospwgen F <password>
-ospwgen FS <password>
-ospwgen --help | -h
-ospwgen --version | -v
-```
-
-### Arguments
-
-- **`<format>`** — Pattern string using format characters (max 256 chars)
-- **`count`** — Number of passwords to generate (default: 1)
-- **`length`** — Length for random passwords (default: 15)
-- **`output_mode`** — Output format option:
-  - `h` — Show password + lowercase hex
-  - `H` — Show password + uppercase hex
-  - `h0` — Show lowercase hex only
-  - `H0` — Show uppercase hex only
-  - `j` — Show JSON output
-
-### Options
-
-- **`R`** — Random password mode
-- **`F <password>`** — Analyse password; output broad format string (`u`, `l`, `d`, `s`, `r`)
-- **`FS <password>`** — Analyse password; output specific format string (`C`, `V`, `c`, `v`, `d`, `s`, `r`)
-- **`--help`**, **`-h`** — Display help message
-- **`--version`**, **`-v`** — Display version information
+This has no effect in JSON mode, since JSON output is already a single structured value.
 
 ## Security
 
-### Cryptographic Randomness
-
-ospwgen uses cryptographically secure random number generators:
-
-- **BSD/macOS**: `arc4random_uniform()` 
-- **Linux (glibc ≥2.36)**: `arc4random_uniform()`
-- **Older Linux**: `/dev/urandom` with rejection sampling
-
-All methods provide uniform distribution without modulo bias.
-
-### Entropy Estimates
-
-| Pattern          | Entropy (bits) | Crack Time (1B/sec) |
-|------------------|---------------:|---------------------|
-| `ulllddss`       | ~48            | ~3 days             |
-| `Ullllddddss`    | ~60            | ~37 years           |
-| `R` (15 chars)   | ~98            | ~10¹⁹ years         |
-| `R 20`           | ~131           | ~10²⁷ years         |
-
-**Note:** Actual entropy depends on character set diversity and length.
+- Randomness comes from Python's `secrets` module, which uses the OS's CSPRNG (`os.urandom` under the hood) — the same security property as the original's `arc4random_uniform()` / `/dev/urandom` fallback, without needing platform-specific `#ifdef`s.
+- All character selection is uniform over the relevant set; no modulo bias.
+- Passwords typed into the **Analyze** tab are masked by default (toggle **Show** to reveal).
 
 ### Best Practices
 
-- **Use at least 12-15 characters** for general-purpose passwords
-- **Include multiple character types** (upper, lower, digits, symbols)
-- **Use random mode (`R`)** for maximum security
-- **Never use predictable patterns** like `dddd` or `llll`
-- **Store generated passwords securely** (password manager)
-- **Use unique passwords** for different services
+- Use at least 12–15 characters for general-purpose passwords
+- Include multiple character types (upper, lower, digits, symbols)
+- Prefer the **Random Generator** tab for maximum entropy
+- Avoid predictable patterns like `dddd` or `llll`
+- Store generated passwords in a password manager
+- Use unique passwords per service
 
-## Building & Installation
+## Differences from the CLI version
 
-### Requirements
+| Aspect | CLI (`ospwgen.c`) | This GUI |
+|---|---|---|
+| Interface | Command-line arguments | Tkinter tabs + buttons |
+| Language | C | Python 3 (standard library only) |
+| RNG | `arc4random_uniform()` / `/dev/urandom` | `secrets` module |
+| Delimiter between batch results | Always newline | Editable (newline, tab, custom text, etc.) |
+| Help text | `--help` flag | Dedicated "Help / About" tab |
+| Output | stdout | In-app results panel, with copy/save/clear |
 
-- C compiler (gcc, clang, or compatible)
-- POSIX-compliant system (Linux, macOS, *BSD)
-- `/dev/urandom` (on systems without `arc4random_uniform`)
-
-### Compile
-
-```bash
-# Basic compilation
-gcc -o ospwgen ospwgen.c -lm
-
-# Optimized build
-gcc -O2 -o ospwgen ospwgen.c -lm
-
-# With all warnings
-gcc -Wall -Wextra -O2 -o ospwgen ospwgen.c -lm
-
-# Static binary
-gcc -static -O2 -o ospwgen ospwgen.c -lm
-```
-
-### Install System-Wide
-
-```bash
-# Install to /usr/local/bin
-sudo cp ospwgen /usr/local/bin/
-sudo chmod +x /usr/local/bin/ospwgen
-
-# Or use the Makefile
-make
-sudo make install
-```
-
-### Makefile Targets
-
-```bash
-make          # Compile ospwgen
-make clean    # Remove binary
-make install  # Install to /usr/local/bin
-make test     # Run basic tests
-```
-
-## Integration Examples
-
-### Shell Scripts
-
-```bash
-#!/bin/bash
-# Generate passwords for new user accounts
-
-while IFS= read -r username; do
-    password=$(ospwgen Ullllddddss)
-    echo "$username:$password"
-    # Set password for user...
-done < users.txt
-```
-
-### Python
-
-```python
-import subprocess
-import json
-
-# Generate passwords in JSON format
-result = subprocess.run(
-    ['ospwgen', 'Ullllddddss', '10', 'j'],
-    capture_output=True,
-    text=True
-)
-
-passwords = json.loads(result.stdout)
-for entry in passwords:
-    print(f"Password: {entry['password']}")
-    print(f"Hex: {entry['hex']}")
-```
-
-### Ansible Playbook
-
-```yaml
-- name: Generate secure passwords
-  command: ospwgen R 20 {{ user_count }} j
-  register: passwords_output
-
-- name: Parse passwords
-  set_fact:
-    user_passwords: "{{ passwords_output.stdout | from_json }}"
-```
-
-### Docker
-
-```dockerfile
-FROM alpine:latest
-RUN apk add --no-cache gcc musl-dev make
-COPY ospwgen.c .
-RUN gcc -O2 -static -o /usr/local/bin/ospwgen ospwgen.c -lm
-ENTRYPOINT ["ospwgen"]
-```
-
-## Comparison
-
-| Tool         | Pattern Support | JSON Output | Portable | Single File |
-|--------------|:---------------:|:-----------:|:--------:|:-----------:|
-| **ospwgen**  | ✅              | ✅          | ✅       | ✅          |
-| pwgen        | Limited         | ❌          | ✅       | ❌          |
-| apg          | ❌              | ❌          | ✅       | ❌          |
-| makepasswd   | ❌              | ❌          | ❌       | ❌          |
-
-## Performance
-
-Benchmark on Intel i5 @ 2.4GHz:
-
-```bash
-# Generate 10,000 passwords
-time ospwgen ulllddss 10000 > /dev/null
-# Real: 0.09s (111,000 passwords/sec)
-
-# Generate 10,000 random passwords
-time ospwgen R 20 10000 > /dev/null
-# Real: 0.12s (83,000 passwords/sec)
-```
+The underlying generation rules, character sets, and format-string semantics are intentionally identical to the original, so a format string built in this GUI behaves the same as one passed to the CLI.
 
 ## Troubleshooting
 
-### Compilation Errors
+```text
+# ModuleNotFoundError: No module named 'tkinter'
+# → Install your OS's Tk package (see Requirements above), then re-run.
 
-```bash
-# Error: undefined reference to 'arc4random_uniform'
-# Solution: Update glibc or let fallback to /dev/urandom (automatic)
-
-# Error: math.h not found
-# Solution: Install build-essential (Debian/Ubuntu)
-sudo apt-get install build-essential
+# Window opens but buttons look unstyled
+# → The app tries the 'clam' ttk theme automatically; if it's unavailable on
+#   your system, Tk falls back to its default theme — purely cosmetic.
 ```
-
-### Runtime Errors
-
-```bash
-# Error: /dev/urandom: Permission denied
-# Solution: Check file permissions
-ls -l /dev/urandom
-# Should be: crw-rw-rw- 1 root root
-
-# Error: Format string too long
-# Solution: Maximum 256 characters
-ospwgen $(printf 'u%.0s' {1..257})  # Fails
-ospwgen $(printf 'u%.0s' {1..256})  # Works
-```
-
-## Contributing
-
-Contributions welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/improvement`)
-3. Make your changes
-4. Add tests if applicable
-5. Commit with clear messages
-6. Push and open a Pull Request
-
-### Code Style
-
-- Follow existing formatting (K&R with // comments)
-- Comment non-obvious logic
-- Keep functions focused and < 50 lines
-- Test on Linux and macOS
 
 ## License
 
-Copyright ©2022-2026 billy@slack.net
+This GUI is a derivative work based on [ospwgen.c](https://github.com/D1A881/ospwgen/blob/main/ospwgen.c), Copyright ©2022-2026 [billy@slack.net](mailto:billy@slack.net), released under the GNU GPLv2 License. See [LICENSE](LICENSE) for details.
 
-Released under the GNU GPLv2 License. See [LICENSE](LICENSE) file for details.
+## Credits
 
-## Author
-
-Created and maintained by **billy@slack.net**
+- **Original algorithm, format-string design, and character sets**: [billy@slack.net](mailto:billy@slack.net) — [D1A881/ospwgen](https://github.com/D1A881/ospwgen)
+- **Tkinter front end**: this repository
 
 ## Links
 
-- **Repository**: https://github.com/D1A881/ospwgen
-- **Issues**: https://github.com/D1A881/ospwgen/issues
-- **Releases**: https://github.com/D1A881/ospwgen/releases
-
-## Changelog
-
-### v0216r00 (Current)
-- Added `F` mode: convert a password to its broad format string
-- Added `FS` mode: convert a password to a specific format string with consonant/vowel distinction
-
-### v0211r02
-- Added JSON output support (`j` flag)
-- Added version and help flags (`-v`, `-h`)
-- Improved portability (works on glibc < 2.36)
-- Performance optimizations (cached strlen calls)
-- Fixed off-by-one errors in validation
-- Better error messages
-
-### v0211r01
-- Initial public release
-- Pattern-based password generation
-- Random mode support
-- Hex output modes
-- Portable random number generation
+- **Upstream repository**: <https://github.com/D1A881/ospwgen>
+- **Upstream issues**: <https://github.com/D1A881/ospwgen/issues>
 
 ---
 
-**⚠️ Security Notice**: While ospwgen generates cryptographically secure passwords, proper password security also requires secure storage, transmission, and usage practices. Always use HTTPS, password managers, and 2FA where possible.
+**⚠️ Security Notice**: While this tool generates cryptographically secure passwords, proper password security also requires secure storage, transmission, and usage practices. Use a password manager and enable 2FA where possible.
