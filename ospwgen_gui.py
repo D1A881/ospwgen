@@ -126,10 +126,10 @@ def format_output(passwords, hex_mode, json_mode):
 
 
 HELP_TEXT = f"""\
-,-. ,-. ;-. , , , ,-: ,-. ;-.
-| | `-. | | |/|/ | | |-' | |
-`-' `-' |-' ' ' `-| `-' ' '
- '       `-'
+    ,-. ,-. ;-. , , , ,-: ,-. ;-.
+    | | `-. | | |/|/  | | |-' | |
+    `-' `-' |-' ' '   `-| `-' ' '
+            '         `-'        
 Old School Password Generator - v{VER:04x} r{REV:02x}
 ©2022-2026 by billy@slack.net
 https://github.com/D1A881/ospwgen
