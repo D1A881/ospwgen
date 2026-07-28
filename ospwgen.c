@@ -14,19 +14,25 @@ static uint32_t pw_rand(uint32_t upper_bound) {
     (defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 36)))
     return arc4random_uniform(upper_bound);
 #else
+    static FILE *urandom_fp = NULL;
+
     if (upper_bound < 2) return 0;
-    uint32_t min = (uint32_t)(-(int32_t)upper_bound) % upper_bound;
+
+    if (!urandom_fp) {
+        urandom_fp = fopen("/dev/urandom", "rb");
+        if (!urandom_fp) { perror("fopen /dev/urandom"); exit(1); }
+    }
+
+    //Rejection sampling to avoid modulo bias.
+    uint32_t min = (-upper_bound) % upper_bound;
     uint32_t r;
-    FILE *f = fopen("/dev/urandom", "rb");
-    if (!f) { perror("fopen /dev/urandom"); exit(1); }
     do {
-        if (fread(&r, sizeof(r), 1, f) != 1) {
+        if (fread(&r, sizeof(r), 1, urandom_fp) != 1) {
             perror("fread");
-            fclose(f);
+            fclose(urandom_fp);
             exit(1);
         }
     } while (r < min);
-    fclose(f);
     return r % upper_bound;
 #endif
 }
@@ -34,6 +40,7 @@ static uint32_t pw_rand(uint32_t upper_bound) {
 #define VER 0x0216
 #define REV 0
 #define MAX_PASSWORD_LENGTH 256
+#define MAX_COUNT 100000
 #define DEFAULT_PASSWORD_LENGTH 15
 
 //Character sets
@@ -65,7 +72,6 @@ void version(void) {
     printf("ospwgen.c - Version %04x Revision %02x\n", VER, REV);
     printf("©2022-2026 by billy@slack.net\n");
     printf("https://github.com/D1A881/ospwgen\n");
-    exit(0);
 }
 
 void usage(const char *cmd) {
@@ -74,7 +80,6 @@ void usage(const char *cmd) {
     printf("       %s F <password>\n", cmd);
     printf("       %s FS <password>\n", cmd);
     printf("       %s --help\n", cmd);
-    exit(0);
 }
 
 void help(const char *cmd) {
@@ -120,10 +125,10 @@ void help(const char *cmd) {
     printf("         ©2022-2026 by billy@slack.net       \n");
     printf("       https://github.com/D1A881/ospwgen     \n");
     printf("_____________________________________________\n");
-    exit(0);
 }
 
-int parse_positive_int(const char *s, int *out) {
+//Parses a positive integer bounded by [1, max]. Returns 1 on success.
+int parse_bounded_int(const char *s, int max, int *out) {
     char *end;
     long v;
 
@@ -131,40 +136,73 @@ int parse_positive_int(const char *s, int *out) {
 
     v = strtol(s, &end, 10);
     if (*end != '\0') return 0;
-    if (v <= 0 || v > MAX_PASSWORD_LENGTH) return 0;
+    if (v <= 0 || v > max) return 0;
 
     *out = (int)v;
     return 1;
 }
 
-hex_mode_t parse_hex_mode(const char *s) {
-    if (!s) return HEX_NONE;
-    if (strcmp(s, "h")  == 0) return HEX_LOWER;
-    if (strcmp(s, "H")  == 0) return HEX_UPPER;
-    if (strcmp(s, "h0") == 0) return HEX_LOWER_ONLY;
-    if (strcmp(s, "H0") == 0) return HEX_UPPER_ONLY;
-    return HEX_NONE;
+int parse_length(const char *s, int *out) {
+    return parse_bounded_int(s, MAX_PASSWORD_LENGTH, out);
 }
 
-json_mode_t parse_json_mode(const char *s) {
-    if (!s) return JSON_NONE;
-    if (strcmp(s, "j") == 0) return JSON_OUTPUT;
-    return JSON_NONE;
+int parse_count(const char *s, int *out) {
+    return parse_bounded_int(s, MAX_COUNT, out);
+}
+
+//Returns 1 and sets *hexmode/*jsonmode if s is a recognized output-mode
+//token ("h", "H", "h0", "H0", "j"). Returns 0 otherwise (s is not a mode
+//token at all -- caller decides whether that's an error).
+int try_parse_output_mode(const char *s, hex_mode_t *hexmode, json_mode_t *jsonmode) {
+    if (!s) return 0;
+    if (strcmp(s, "j") == 0)  { *jsonmode = JSON_OUTPUT; *hexmode = HEX_NONE;       return 1; }
+    if (strcmp(s, "h") == 0)  { *hexmode  = HEX_LOWER;   *jsonmode = JSON_NONE;     return 1; }
+    if (strcmp(s, "H") == 0)  { *hexmode  = HEX_UPPER;   *jsonmode = JSON_NONE;     return 1; }
+    if (strcmp(s, "h0") == 0) { *hexmode  = HEX_LOWER_ONLY; *jsonmode = JSON_NONE;  return 1; }
+    if (strcmp(s, "H0") == 0) { *hexmode  = HEX_UPPER_ONLY; *jsonmode = JSON_NONE;  return 1; }
+    return 0;
+}
+
+//Validates and parses the output-mode argument at argv[idx], if present.
+//If idx >= argc, output mode defaults to none (not an error).
+//If idx < argc but the token isn't a recognized mode, prints an error and
+//exits -- this closes the "silently ignore garbage trailing argument" hole.
+void parse_output_mode_arg(int argc, char **argv, int idx,
+                            hex_mode_t *hexmode, json_mode_t *jsonmode,
+                            const char *cmd) {
+    *hexmode = HEX_NONE;
+    *jsonmode = JSON_NONE;
+
+    if (idx >= argc) return;
+
+    if (!try_parse_output_mode(argv[idx], hexmode, jsonmode)) {
+        printf("ERROR: Invalid option '%s'! Expected one of h, H, h0, H0, j\n", argv[idx]);
+        usage(cmd);
+        exit(1);
+    }
 }
 
 //Validation
 void validate_format(const char *fmt, const char *cmd) {
     size_t len = strlen(fmt);
 
+    if (len == 0) {
+        printf("ERROR: Format string must not be empty!\n");
+        usage(cmd);
+        exit(1);
+    }
+
     if (len > MAX_PASSWORD_LENGTH) {
         printf("ERROR: Format string must be %d characters or less!\n", MAX_PASSWORD_LENGTH);
         usage(cmd);
+        exit(1);
     }
 
     for (size_t i = 0; i < len; i++) {
         if (!strchr(a_fstr, fmt[i])) {
             printf("ERROR: Invalid character '%c' at position %zu!\n", fmt[i], i + 1);
             usage(cmd);
+            exit(1);
         }
     }
 }
@@ -222,11 +260,13 @@ void password_to_format(const char *password, int specific, const char *cmd) {
     if (len == 0) {
         printf("ERROR: Password must not be empty!\n");
         usage(cmd);
+        exit(1);
     }
 
     if (len > MAX_PASSWORD_LENGTH) {
         printf("ERROR: Password must be %d characters or less!\n", MAX_PASSWORD_LENGTH);
         usage(cmd);
+        exit(1);
     }
 
     for (size_t i = 0; i < len; i++) {
@@ -277,42 +317,36 @@ void json_escape(const char *str, char *escaped, size_t escaped_size) {
     escaped[j] = '\0';
 }
 
-//Print a single password as a JSON object:
-//{"password":"...", "hex":"..."}
-void print_json_single(const char *str) {
+//Print a single password as a JSON object: {"password":"...", "hex":"..."}
+//indent is prepended to each line so the same routine works standalone or
+//nested inside a JSON array.
+void print_json_entry(const char *str, const char *indent, int trailing_comma) {
     char escaped[MAX_PASSWORD_LENGTH * 6 + 1]; //worst case: every char -> \uXXXX
     json_escape(str, escaped, sizeof(escaped));
 
-    printf("{\n");
-    printf("  \"password\": \"%s\",\n", escaped);
-    printf("  \"hex\": \"");
+    printf("%s{\n", indent);
+    printf("%s  \"password\": \"%s\",\n", indent, escaped);
+    printf("%s  \"hex\": \"", indent);
 
-    size_t len = strlen(str);  //cache strlen
+    size_t len = strlen(str);
     for (size_t i = 0; i < len; i++) {
         printf("%02x", (unsigned char)str[i]);
     }
     printf("\"\n");
-    printf("}\n");
+    printf("%s}%s\n", indent, trailing_comma ? "," : "");
 }
 
-//Collect all passwords into a JSON array and print at once.
-//Caller passes a pre-allocated array of strings and the count.
-void print_json_array(const char passwords[][MAX_PASSWORD_LENGTH + 1], int count) {
-    char escaped[MAX_PASSWORD_LENGTH * 6 + 1];
+//Prints `count` passwords as JSON: a bare object if count == 1, otherwise
+//a JSON array of objects.
+void print_json_passwords(char passwords[][MAX_PASSWORD_LENGTH + 1], int count) {
+    if (count == 1) {
+        print_json_entry(passwords[0], "", 0);
+        return;
+    }
 
     printf("[\n");
     for (int i = 0; i < count; i++) {
-        json_escape(passwords[i], escaped, sizeof(escaped));
-        printf("  {\n");
-        printf("    \"password\": \"%s\",\n", escaped);
-        printf("    \"hex\": \"");
-
-        size_t len = strlen(passwords[i]);  //cache strlen
-        for (size_t k = 0; k < len; k++) {
-            printf("%02x", (unsigned char)passwords[i][k]);
-        }
-        printf("\"\n");
-        printf("  }%s\n", (i < count - 1) ? "," : "");
+        print_json_entry(passwords[i], "  ", i < count - 1);
     }
     printf("]\n");
 }
@@ -324,7 +358,7 @@ void print_with_hex(const char *str, hex_mode_t mode) {
     }
 
     if (mode != HEX_NONE) {
-        size_t len = strlen(str);  //cache strlen
+        size_t len = strlen(str);
         for (size_t i = 0; i < len; i++) {
             printf(
                 (mode == HEX_UPPER || mode == HEX_UPPER_ONLY) ? "%X" : "%x",
@@ -339,42 +373,12 @@ void print_with_hex(const char *str, hex_mode_t mode) {
     }
 }
 
-//Random mode
-void handle_random_mode(int argc, char **argv, char *out, const char *cmd) {
-    int length = DEFAULT_PASSWORD_LENGTH;
-    int count  = 1;
-    int tmp;
-    hex_mode_t hexmode   = HEX_NONE;
-    json_mode_t jsonmode = JSON_NONE;
-
-    //length
-    if (argc >= 3 && parse_positive_int(argv[2], &tmp)) {
-        length = tmp;
-    }
-
-    //count
-    if (argc >= 4 && parse_positive_int(argv[3], &tmp)) {
-        count = tmp;
-    }
-
-    //output mode option (hex or json)
-    if (argc >= 5) {
-        jsonmode = parse_json_mode(argv[4]);
-        if (jsonmode == JSON_NONE) hexmode = parse_hex_mode(argv[4]);
-    } else if (argc >= 4 && !parse_positive_int(argv[3], &tmp)) {
-        jsonmode = parse_json_mode(argv[3]);
-        if (jsonmode == JSON_NONE) hexmode = parse_hex_mode(argv[3]);
-    }
-
-    //Validate unexpected integer arguments
-    if ((argc >= 3 && argv[2] && !parse_positive_int(argv[2], &tmp) && parse_hex_mode(argv[2]) == HEX_NONE && parse_json_mode(argv[2]) == JSON_NONE) ||
-        (argc >= 4 && argv[3] && !parse_positive_int(argv[3], &tmp) && parse_hex_mode(argv[3]) == HEX_NONE && parse_json_mode(argv[3]) == JSON_NONE)) {
-        printf("ERROR: Integer arguments must be between 1 and %d\n", MAX_PASSWORD_LENGTH);
-        usage(cmd);
-    }
-
+//Generates `count` passwords using `generator` (either a fixed-length
+//random generator or a format-driven generator) and emits them either as
+//plain/hex text or as JSON, depending on jsonmode/hexmode.
+void emit_passwords(int count, hex_mode_t hexmode, json_mode_t jsonmode,
+                     void (*generate)(void *ctx, char *out), void *ctx) {
     if (jsonmode == JSON_OUTPUT) {
-        //Collect all passwords then emit JSON
         char (*passwords)[MAX_PASSWORD_LENGTH + 1] =
             malloc((size_t)count * sizeof(*passwords));
         if (!passwords) {
@@ -382,21 +386,66 @@ void handle_random_mode(int argc, char **argv, char *out, const char *cmd) {
             exit(1);
         }
         for (int i = 0; i < count; i++) {
-            generate_random_password(passwords[i], length);
+            generate(ctx, passwords[i]);
         }
-        if (count == 1) {
-            print_json_single(passwords[0]);
-        } else {
-            print_json_array(passwords, count);
-        }
+        print_json_passwords(passwords, count);
         free(passwords);
     } else {
+        char out[MAX_PASSWORD_LENGTH + 1];
         for (int i = 0; i < count; i++) {
-            generate_random_password(out, length);
+            generate(ctx, out);
             print_with_hex(out, hexmode);
         }
     }
+}
 
+typedef struct { int length; } random_ctx_t;
+void generate_random_cb(void *ctx, char *out) {
+    random_ctx_t *rc = (random_ctx_t *)ctx;
+    generate_random_password(out, rc->length);
+}
+
+typedef struct { const char *fmt; } format_ctx_t;
+void generate_format_cb(void *ctx, char *out) {
+    format_ctx_t *fc = (format_ctx_t *)ctx;
+    generate_from_format(fc->fmt, out);
+}
+
+//Random mode: ospwgen R [length] [count] [h|H|h0|H0|j]
+//Any argument that isn't consumed as length/count and isn't a valid output
+//mode token is a hard error -- nothing is silently ignored.
+void handle_random_mode(int argc, char **argv, const char *cmd) {
+    int length = DEFAULT_PASSWORD_LENGTH;
+    int count  = 1;
+    hex_mode_t hexmode;
+    json_mode_t jsonmode;
+    int next = 2;
+
+    if (next < argc && parse_length(argv[next], &length)) {
+        next++;
+    } else if (next < argc && !try_parse_output_mode(argv[next], &hexmode, &jsonmode)) {
+        printf("ERROR: Length must be an integer between 1 and %d\n", MAX_PASSWORD_LENGTH);
+        usage(cmd);
+        exit(1);
+    }
+
+    if (next < argc && parse_count(argv[next], &count)) {
+        next++;
+    } else if (next < argc && !try_parse_output_mode(argv[next], &hexmode, &jsonmode)) {
+        printf("ERROR: Count must be an integer between 1 and %d\n", MAX_COUNT);
+        usage(cmd);
+        exit(1);
+    }
+
+    parse_output_mode_arg(argc, argv, next, &hexmode, &jsonmode, cmd);
+    if (next + 1 < argc) {
+        printf("ERROR: Too many arguments!\n");
+        usage(cmd);
+        exit(1);
+    }
+
+    random_ctx_t rc = { length };
+    emit_passwords(count, hexmode, jsonmode, generate_random_cb, &rc);
     exit(0);
 }
 
@@ -405,23 +454,24 @@ void handle_random_mode(int argc, char **argv, char *out, const char *cmd) {
 //
 
 int main(int argc, char *argv[]) {
-    char out[MAX_PASSWORD_LENGTH + 1] = {0};
-
     if (argc < 2) {
         printf("ERROR: Format string required!\n");
         usage(argv[0]);
+        exit(1);
     }
 
     if ((strcmp(argv[1], "--help") == 0) || (strcmp(argv[1], "-h") == 0)) {
         help(argv[0]);
+        exit(0);
     }
 
     if ((strcmp(argv[1], "--version") == 0) || (strcmp(argv[1], "-v") == 0)) {
         version();
+        exit(0);
     }
 
     if (strcmp(argv[1], "R") == 0) {
-        handle_random_mode(argc, argv, out, argv[0]);
+        handle_random_mode(argc, argv, argv[0]);
     }
 
     //FORMAT CONVERSION MODE: F <password>
@@ -432,6 +482,7 @@ int main(int argc, char *argv[]) {
         if (argc < 3) {
             printf("ERROR: Password required!\n");
             usage(argv[0]);
+            exit(1);
         }
         password_to_format(argv[2], specific, argv[0]);
         exit(0);
@@ -439,57 +490,29 @@ int main(int argc, char *argv[]) {
 
     validate_format(argv[1], argv[0]);
 
-    hex_mode_t  hexmode  = HEX_NONE;
-    json_mode_t jsonmode = JSON_NONE;
+    //FORMAT GENERATION MODE: ospwgen <format> [count] [h|H|h0|H0|j]
+    int count = 1;
+    hex_mode_t hexmode;
+    json_mode_t jsonmode;
+    int next = 2;
 
-    if (argc >= 4) {
-        jsonmode = parse_json_mode(argv[3]);
-        if (jsonmode == JSON_NONE) hexmode = parse_hex_mode(argv[3]);
+    if (next < argc && parse_count(argv[next], &count)) {
+        next++;
+    } else if (next < argc && !try_parse_output_mode(argv[next], &hexmode, &jsonmode)) {
+        printf("ERROR: Count must be an integer between 1 and %d\n", MAX_COUNT);
+        usage(argv[0]);
+        exit(1);
     }
 
-    //FORMAT MULTI-GENERATE MODE
-    int count;
-
-    if (argc >= 3 && parse_positive_int(argv[2], &count)) {
-        if (jsonmode == JSON_OUTPUT) {
-            char (*passwords)[MAX_PASSWORD_LENGTH + 1] =
-                malloc((size_t)count * sizeof(*passwords));
-            if (!passwords) {
-                fprintf(stderr, "ERROR: Out of memory\n");
-                exit(1);
-            }
-            for (int i = 0; i < count; i++) {
-                generate_from_format(argv[1], passwords[i]);
-            }
-            if (count == 1) {
-                print_json_single(passwords[0]);
-            } else {
-                print_json_array(passwords, count);
-            }
-            free(passwords);
-        } else {
-            for (int i = 0; i < count; i++) {
-                generate_from_format(argv[1], out);
-                print_with_hex(out, hexmode);
-            }
-        }
-        return 0;
+    parse_output_mode_arg(argc, argv, next, &hexmode, &jsonmode, argv[0]);
+    if (next + 1 < argc) {
+        printf("ERROR: Too many arguments!\n");
+        usage(argv[0]);
+        exit(1);
     }
 
-    //SINGLE FORMAT GENERATION
-    generate_from_format(argv[1], out);
-
-    //SINGLE OUTPUT
-    if (argc >= 3) {
-        jsonmode = parse_json_mode(argv[2]);
-        if (jsonmode == JSON_NONE) hexmode = parse_hex_mode(argv[2]);
-    }
-
-    if (jsonmode == JSON_OUTPUT) {
-        print_json_single(out);
-    } else {
-        print_with_hex(out, hexmode);
-    }
+    format_ctx_t fc = { argv[1] };
+    emit_passwords(count, hexmode, jsonmode, generate_format_cb, &fc);
 
     return 0;
 }
